@@ -96,20 +96,6 @@ Rule-based scoring (needs Node 22 or newer):
 ```
 npm run test:rules
 ```
-Both only check that the code works; they say nothing about real-world accuracy. After you push to GitHub, the same tests also run automatically (see the "Actions" tab).
-
-### Step 8 - Take screenshots for your report
-With the app running, take screenshots of: the Diagnose page, the Results page (verdict), the industrial ML panel, the Models page, and http://127.0.0.1:8000/docs. Windows: **Win + Shift + S**. Mac: **Cmd + Shift + 4**.
-
-### Step 9 - Save your work to GitHub
-```
-git add .
-git commit -m "Compare three models with cross-validation; fix misleading UI text"
-git push
-```
-(`.venv`, `node_modules` and the downloaded data are ignored by git automatically.)
-
----
 
 ## Project structure
 - `src/` - website (React + TypeScript, built with Vite). `src/lib/diagnose.ts` holds the rule-based scoring.

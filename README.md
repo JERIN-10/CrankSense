@@ -1,0 +1,134 @@
+# CrankSense
+
+**AI-assisted predictive-maintenance prototype for small-engine motorcycles** (academic project).
+
+CrankSense has two separate parts. Do not mix them up:
+
+| Part | What it is | Is it machine learning? |
+|---|---|---|
+| **Motorcycle assessment** (Diagnose / Results / Repair pages) | You type 8 readings (vibration, sound, age, idle RPM, HC, CO ...). Fixed rules add up risk points and give a verdict. | **No** - hand-written rules. Thresholds are not yet validated. |
+| **Industrial ML demo** (Results and Models pages, `ml-backend/`) | Three models are compared on the public AI4I 2020 dataset and the best one is served by an API. | **Yes**, but the data are **synthetic industrial machines, not motorcycles**. |
+
+The ML results show the *method*. They are **not** evidence that the project can predict real motorcycle failures.
+
+---
+
+## Step-by-step setup for beginners
+
+Do the steps in order. Anything after `>` or `$` is typed into a terminal (Windows: **PowerShell**; Mac/Linux: **Terminal**). You need to type each command from the project folder (the folder that contains `package.json`).
+
+### Step 0 - Install the tools (one time)
+1. **Node.js** (LTS version): https://nodejs.org - this runs the website.
+2. **Python 3.10 or newer**: https://www.python.org/downloads/ - on Windows tick **"Add Python to PATH"** during install.
+3. Check both work:
+   ```
+   node --version
+   python --version        (on Mac/Linux you may need: python3 --version)
+   ```
+
+### Step 1 - Open the project folder
+```
+cd path/to/CrankSense
+```
+Tip: in VS Code use *File > Open Folder*, then *Terminal > New Terminal*; it opens in the right place.
+
+### Step 2 - Install the website packages
+```
+npm install
+```
+This takes a few minutes the first time and creates a `node_modules` folder.
+
+### Step 3 - Create the Python environment and install packages
+**Windows (PowerShell):**
+```
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r ml-backend\requirements.txt
+```
+**Mac / Linux:**
+```
+python3 -m venv .venv
+./.venv/bin/python -m pip install --upgrade pip
+./.venv/bin/python -m pip install -r ml-backend/requirements.txt
+```
+You do not need to "activate" the environment; the commands above call it directly.
+
+### Step 4 - Train the models (recommended)
+The project already contains an older saved model so the app runs immediately, but you should train once yourself. This downloads the public dataset (needs internet), compares three models with cross-validation, and saves the results.
+
+**Windows:** `.\.venv\Scripts\python.exe ml-backend\train.py`
+**Mac / Linux:** `./.venv/bin/python ml-backend/train.py`
+
+You will see a table like:
+```
+Model                   CV F1   Test P   Test R  Test F1  ROC AUC
+Logistic Regression     ...
+Decision Tree           ...
+Random Forest           ...
+Selected model: ...
+```
+It also saves `ml-backend/artifacts/metrics.json`, `model.joblib` and three pictures (`confusion_matrix.png`, `roc_curve.png`, `pr_curve.png`). **Copy the table into your report** - those are your real numbers.
+
+If the download fails, download the zip from the UCI page (https://archive.ics.uci.edu/dataset/601/ai4i+2020+predictive+maintenance+dataset), unzip it, and save the CSV as `ml-backend/data/ai4i2020.csv`, then run the command again.
+
+### Step 5 - Start the app
+```
+npm run dev:all
+```
+This starts two things at once: the website (usually http://localhost:5173) and the API (http://127.0.0.1:8000). Open the website address in your browser. Stop everything with **Ctrl + C**.
+
+### Step 6 - Check that it works
+- http://127.0.0.1:8000/health - should show `"status": "ok"` and `"model_ready": true`
+- http://127.0.0.1:8000/metrics - the saved results (JSON text)
+- http://127.0.0.1:8000/docs - interactive page where you can try the prediction endpoint
+- In the website: **Diagnose** -> click *Load sample bike* -> *Diagnose engine*; then open **Models** to see the comparison table.
+
+(The API has no page at `/`, so http://127.0.0.1:8000/ shows "Not Found". That is normal.)
+
+### Step 7 - Run the tests (optional)
+Training code (fake data, no internet needed):
+```
+cd ml-backend
+python -m unittest discover -s tests -v
+cd ..
+```
+Rule-based scoring (needs Node 22 or newer):
+```
+npm run test:rules
+```
+Both only check that the code works; they say nothing about real-world accuracy. After you push to GitHub, the same tests also run automatically (see the "Actions" tab).
+
+### Step 8 - Take screenshots for your report
+With the app running, take screenshots of: the Diagnose page, the Results page (verdict), the industrial ML panel, the Models page, and http://127.0.0.1:8000/docs. Windows: **Win + Shift + S**. Mac: **Cmd + Shift + 4**.
+
+### Step 9 - Save your work to GitHub
+```
+git add .
+git commit -m "Compare three models with cross-validation; fix misleading UI text"
+git push
+```
+(`.venv`, `node_modules` and the downloaded data are ignored by git automatically.)
+
+---
+
+## Project structure
+- `src/` - website (React + TypeScript, built with Vite). `src/lib/diagnose.ts` holds the rule-based scoring.
+- `ml-backend/api.py` - FastAPI service (`/health`, `/model-info`, `/metrics`, `/predict/industrial`).
+- `ml-backend/train.py` - downloads data, compares 3 models with 5-fold cross-validation, saves model + metrics + plots.
+- `ml-backend/tests/` - unit tests for the training code.
+- `ml-backend/artifacts/` - saved model and metrics (regenerated by `train.py`).
+- `scripts/run-backend.mjs` - starts the API on Windows, Mac and Linux.
+
+## Honest limitations
+- The ML data are synthetic and industrial. Results do not apply to motorcycles.
+- One random 80/20 split plus 5-fold cross-validation; hyper-parameters are mostly defaults (not tuned).
+- Failures are rare (about 3% of records), so look at precision and recall, not accuracy.
+- Rule thresholds, repair cost ranges and the emission estimate are developer-chosen heuristics.
+- Not a safety system. Do not use it to decide whether a motorcycle is safe to ride.
+
+## Troubleshooting
+- **`No module named 'uvicorn'`** - redo Step 3 (the packages were not installed in `.venv`).
+- **`Could not find the Python virtual environment`** - redo Step 3 in the project root.
+- **Port already in use** - close the other terminal that is running the app, or restart your computer.
+- **Models page says "Metrics could not be loaded"** - the API is not running; start it with `npm run dev:all`.
+- **PowerShell blocks scripts** - you do not need to activate `.venv`; use the commands exactly as written.
